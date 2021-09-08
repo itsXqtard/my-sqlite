@@ -6,7 +6,8 @@ class MySqliteRequest
         @type_of_request    = :none
         @select_columns     = []
         @where_params       = []
-        @insert_attributes  = []
+        @insert_attributes  = {}
+        @update_attributes  = {}
         @table_name         = nil
         @order              = :asc
     end
@@ -56,10 +57,14 @@ class MySqliteRequest
 
     def update(table_name)
         self._setTypeOfRequest(:update)
+        @table_name = table_name
         self
     end
 
     def set(data)
+        if (@type_of_request == :update)
+            @update_attributes = data
+        end
         self
     end
 
@@ -77,6 +82,9 @@ class MySqliteRequest
         puts "Insert Attributes #{@insert_attributes}"
     end
 
+    def print_update_type 
+        puts "Update Attributes #{@update_attributes}"
+    end
 
 
     def prints
@@ -86,6 +94,8 @@ class MySqliteRequest
             print_select_type
         elsif (@type_of_request == :insert)
             print_insert_type
+        elsif (@type_of_request == :update)
+            print_update_type
         end
     end
 
@@ -100,6 +110,12 @@ class MySqliteRequest
 
     end
 
+    def _run_insert
+        File.open(@table_name, 'a') do |f|
+            f << @insert_attributes.values.join(',')
+        end
+    end
+
     def _run_select
         result = []
         CSV.parse(File.read(@table_name), headers: true).each do |row|
@@ -112,10 +128,30 @@ class MySqliteRequest
         result
     end
 
+    def _run_update
+        result = []
+        # table = CSV.read(@table_name, headers: true).each do |row, index|
+        #     @update_attributes.each do |set_attr|
+        #         row[set_attr[0]] = set_attr[1]
+        #     end
+        # end
+        p table
+        # CSV.open(@table_name, 'wb') do |csv|
+        #     csv << ["name"]
+        #     array.length.times do |i|
+        #     csv << [array[i]]
+        #     end 
+        #  end 
+    end
+
     def run
         prints
         if (@type_of_request == :select)
             _run_select
+        elsif (@type_of_request == :insert)
+            _run_insert
+        elsif (@type_of_request == :update)
+            _run_update
         end
     end
 
@@ -128,8 +164,10 @@ def _main()
     # request = request.where('name', 'Zaid Abdul-Aziz')
     # p request.run
     request = MySqliteRequest.new
-    request = request.insert('nba_player_data.csv')
-    request = request.values({"name" => "Alaa Abdelnaby", "year_start" => "1991", "year_end" => "1995", "position" => "F-C", "height" => "6-10", "weight" => "240", "birth_date" => "June 24, 1968", "college" => "Duke University"})
+    request = request.update("nba_player_data_lite.csv")
+    request = request.set({"name" => "HI"})
+    # request = request.insert('nba_player_data_lite.csv')
+    # request = request.values({"name" => "Alaa Abdelnaby", "year_start" => "1991", "year_end" => "1995", "position" => "F-C", "height" => "6-10", "weight" => "240", "birth_date" => "June 24, 1968", "college" => "Duke University"})
     request.run
 end
 
