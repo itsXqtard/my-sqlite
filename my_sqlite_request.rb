@@ -1,4 +1,6 @@
 require 'csv'
+require 'tempfile'
+require 'fileutils'
 
 class MySqliteRequest
 
@@ -128,20 +130,22 @@ class MySqliteRequest
         result
     end
 
+
     def _run_update
         result = []
-        # table = CSV.read(@table_name, headers: true).each do |row, index|
-        #     @update_attributes.each do |set_attr|
-        #         row[set_attr[0]] = set_attr[1]
-        #     end
-        # end
-        p table
-        # CSV.open(@table_name, 'wb') do |csv|
-        #     csv << ["name"]
-        #     array.length.times do |i|
-        #     csv << [array[i]]
-        #     end 
-        #  end 
+        temp = Tempfile.new
+        old_csv = CSV.open(@table_name, "r", headers: true, return_headers: true)
+        old_csv.readline
+        new_csv = CSV.open(temp, "w", headers: old_csv.headers, write_headers: true)
+        old_csv.each do |row|
+            @update_attributes.each do |set_attr|
+                row[set_attr[0]] = set_attr[1]
+            end
+            new_csv << row
+        end
+        old_csv.close
+        new_csv.close
+        FileUtils.move(temp.path, @table_name)
     end
 
     def run
@@ -165,7 +169,7 @@ def _main()
     # p request.run
     request = MySqliteRequest.new
     request = request.update("nba_player_data_lite.csv")
-    request = request.set({"name" => "HI"})
+    request = request.set({"name" => "HI", "year_start" => "1991"})
     # request = request.insert('nba_player_data_lite.csv')
     # request = request.values({"name" => "Alaa Abdelnaby", "year_start" => "1991", "year_end" => "1995", "position" => "F-C", "height" => "6-10", "weight" => "240", "birth_date" => "June 24, 1968", "college" => "Duke University"})
     request.run
