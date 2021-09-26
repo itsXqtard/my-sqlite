@@ -42,6 +42,7 @@ class MySqliteRequest
         @join_attributes    = {}
         @table_name         = nil
         @order              = :asc
+        @order_by           = ""
     end
 
     def from(table_name)
@@ -72,6 +73,8 @@ class MySqliteRequest
     end
 
     def order(order, column_name)
+        @order = order
+        @order_by = column_name
         self
     end
 
@@ -122,7 +125,11 @@ class MySqliteRequest
     end
 
     def print_join_type
-        puts "Join Attributes #{@join_attributes}"
+        puts "Join On #{@join_attributes}"
+    end
+
+    def print_order_type
+        puts "Order by #{@order_by} #{@order}"
     end
 
     def prints
@@ -130,15 +137,16 @@ class MySqliteRequest
         puts "Table Name #{@table_name}"
         if(@type_of_request == :select)
             print_select_type
-            if(@join_attributes.empty? == false)
+            if(!@join_attributes.empty?)
                 print_join_type
+            end
+            if(!@order_by.empty?)
+                print_order_type
             end
         elsif (@type_of_request == :insert)
             print_insert_type
         elsif (@type_of_request == :update)
             print_update_type
-        elsif (@type_of_request == :join)
-            print_join_type
         end
     end
 
@@ -172,7 +180,6 @@ class MySqliteRequest
                 end
             end
         end
-        p result
         result
     end
 
@@ -217,10 +224,6 @@ class MySqliteRequest
                 header 
             end
         end
-    end
-
-    def join_tables()
-
     end
 
     def get_table(table_name)
@@ -271,17 +274,29 @@ class MySqliteRequest
                 end
             end
         end
-        p result
+        result
     end
 
     def run
         prints
         if (@type_of_request == :select)
-            if(@join_attributes.empty? == true)
-                _run_select
+            result = []
+            if(@join_attributes.empty?)
+                result = _run_select
             else
-                _run_join
+                result = _run_join
             end
+            #finish comparing the order by left table column and right table column
+            if(!@order_by.empty?)
+                if (@order_by == @join_attributes[:left_on])
+                    lft_tbl_col = "#{@table_name}.#{@order_by}"
+                    rht_tbl_col = "#{@join_attributes[:table]}.#{@order_by}"
+
+
+                else
+                end
+            end
+            p result
         elsif (@type_of_request == :insert)
             _run_insert
         elsif (@type_of_request == :update)
@@ -302,6 +317,7 @@ def _main()
     request = request.select(['name', 'year_start'])
     request = request.where('name', 'Mark Acres')
     request = request.join("name", "nba_player_data_lite_join.csv", "name")
+    request = request.order(:desc, 'year_start')
     # request = request.update("nba_player_data_lite.csv")
     # request = request.set({"name" => "HI", "year_start" => "1991"})
     # request = request.insert('nba_player_data_lite.csv')
