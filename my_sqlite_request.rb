@@ -23,7 +23,7 @@ class JoinOn
     def inspect
         print "BEGIN\n"
         @rows.each do |row|
-            print row.class
+            print row.to_hash
         end
         print "END\n"
     end
@@ -217,13 +217,20 @@ class MySqliteRequest
     end
 
     def rename_colliding_headers(table, headers)
-        headers.map do |header| 
-            if (header == @join_attributes[:right_on])
-                "#{table}.#{header}"
-            else
-                header 
+        updated_headers = []
+        headers.each do |header|
+            collision = false
+            @select_columns.each do |column|
+                if (header == column)
+                    updated_headers << "#{table}.#{header}"
+                    collision = true
+                end
+            end
+            if(!collision)
+                updated_headers << header
             end
         end
+        updated_headers
     end
 
     def get_table(table_name)
@@ -251,6 +258,7 @@ class MySqliteRequest
                 csv_string += row.to_s.strip + "," + matching_row.to_s
             end
         end
+        p left_table_header + right_table_header
         new_csv = CSV.parse(csv_string, headers: left_table_header + right_table_header)
         
         result = []
@@ -262,8 +270,10 @@ class MySqliteRequest
             else
                 formated_select_columns.append(column)
             end
-        end   
+        end
+
         new_csv.each do |row|
+            # p row.to_hash
             if (@where_params.empty? == true)
                 result << row.to_hash.slice(*formated_select_columns)
                 next
@@ -291,12 +301,11 @@ class MySqliteRequest
                 if (@order_by == @join_attributes[:left_on])
                     lft_tbl_col = "#{@table_name}.#{@order_by}"
                     rht_tbl_col = "#{@join_attributes[:table]}.#{@order_by}"
-
-
+                    result.sort { |a, b| [a[lft_tbl_col], a[rht_tbl_col]] <=> [b[lft_tbl_col], b[rht_tbl_col]] }
                 else
                 end
             end
-            p result
+            # p result
         elsif (@type_of_request == :insert)
             _run_insert
         elsif (@type_of_request == :update)
@@ -317,7 +326,7 @@ def _main()
     request = request.select(['name', 'year_start'])
     request = request.where('name', 'Mark Acres')
     request = request.join("name", "nba_player_data_lite_join.csv", "name")
-    request = request.order(:desc, 'year_start')
+    # request = request.order(:desc, 'year_start')
     # request = request.update("nba_player_data_lite.csv")
     # request = request.set({"name" => "HI", "year_start" => "1991"})
     # request = request.insert('nba_player_data_lite.csv')
