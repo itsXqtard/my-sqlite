@@ -258,20 +258,15 @@ class MySqliteRequest
                 csv_string += row.to_s.strip + "," + matching_row.to_s
             end
         end
-        p left_table_header + right_table_header
+        # p left_table_header + right_table_header
         new_csv = CSV.parse(csv_string, headers: left_table_header + right_table_header)
         
         result = []
         formated_select_columns = []
         @select_columns.each do |column|
-            if (column == @join_attributes[:left_on])
-                formated_select_columns.append("#{@table_name}.#{column}")
-                formated_select_columns.append("#{@join_attributes[:table]}.#{column}")
-            else
-                formated_select_columns.append(column)
-            end
+            formated_select_columns.append("#{@table_name}.#{column}")
+            formated_select_columns.append("#{@join_attributes[:table]}.#{column}")
         end
-
         new_csv.each do |row|
             # p row.to_hash
             if (@where_params.empty? == true)
@@ -279,7 +274,7 @@ class MySqliteRequest
                 next
             end
             @where_params.each do |where_attr|
-                if row["#{@table_name}.#{where_attr[0]}"] == where_attr[1]
+                if row["#{@table_name}.#{where_attr[0]}"] == where_attr[1] || row["#{@join_attributes[:table]}.#{where_attr[0]}"] == where_attr[1]
                     result << row.to_hash.slice(*formated_select_columns)
                 end
             end
