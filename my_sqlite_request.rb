@@ -282,6 +282,11 @@ class MySqliteRequest
         result
     end
 
+    def multiple_sort(items, options)
+        items.sort_by { |h| options.map { |g|
+          ((g[:dir]=='asc') ? 1 : -1) * h[g[:field].to_sym].to_i } }
+    end
+
     def run
         prints
         if (@type_of_request == :select)
@@ -296,9 +301,14 @@ class MySqliteRequest
                 if (@order_by == @join_attributes[:left_on])
                     lft_tbl_col = "#{@table_name}.#{@order_by}"
                     rht_tbl_col = "#{@join_attributes[:table]}.#{@order_by}"
-                    result.sort { |a, b| [a[lft_tbl_col], a[rht_tbl_col]] <=> [b[lft_tbl_col], b[rht_tbl_col]] }
-                else
+                    options = [{field: "#{@table_name}.name", dir: 'asc'}, {field: "#{@join_attributes[:table]}.year_start", dir: 'asc'}]
+                    sorted = multiple_sort(result, options)
+                    sorted.each do |row|
+                        row
+                    end
                 end
+
+
             end
             # p result
         elsif (@type_of_request == :insert)
@@ -321,7 +331,7 @@ def _main()
     request = request.select(['name', 'year_start'])
     request = request.where('name', 'Mark Acres')
     request = request.join("name", "nba_player_data_lite_join.csv", "name")
-    # request = request.order(:desc, 'year_start')
+    request = request.order(:desc, 'year_start')
     # request = request.update("nba_player_data_lite.csv")
     # request = request.set({"name" => "HI", "year_start" => "1991"})
     # request = request.insert('nba_player_data_lite.csv')
