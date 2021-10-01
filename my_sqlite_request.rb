@@ -201,16 +201,17 @@ class MySqliteRequest
         FileUtils.move(temp.path, @table_name)
     end
 
-    def create_table_lookup()
+    def create_right_table_lookup()
         table_lookup = {}
         CSV.parse(File.read(@join_attributes[:table]), headers: true).each do |row|
-            key = @join_attributes[:right_on]
+            rht_col = @join_attributes[:right_on]
+            key = "#{@join_attributes[:left_on]},#{row[rht_col]},#{@join_attributes[:right_on]}"
             if table_lookup.key?(row[key])
-                join_on = table_lookup[row[key]]
+                join_on = table_lookup[key]
                 join_on.append(row)
             else
-                join_on = JoinOn.new(row[key]).append(row)
-                table_lookup[row[key]] = join_on
+                join_on = JoinOn.new(key).append(row)
+                table_lookup[key] = join_on
             end
         end
         table_lookup
@@ -241,7 +242,7 @@ class MySqliteRequest
         left_table = []
         right_table = []
         temp = Tempfile.new
-        table_lookup = create_table_lookup()
+        table_lookup = create_right_table_lookup()
         left_table = get_table(@table_name)
         right_table = get_table(@join_attributes[:table])
 
@@ -251,14 +252,17 @@ class MySqliteRequest
 
         csv_string = ""
         left_table.each do |row|
-            key = row[@join_attributes[:right_on]]
+            lft_row_value = row[@join_attributes[:left_on]]
+            key = "#{@join_attributes[:left_on]},#{lft_row_value},#{@join_attributes[:right_on]}"
             matching = table_lookup[key]
-            matching_rows = matching.rows
-            matching_rows.each do |matching_row|
-                csv_string += row.to_s.strip + "," + matching_row.to_s
+            if !matching.nil?
+                matching_rows = matching.rows
+                matching_rows.each do |matching_row|
+                    csv_string += row.to_s.strip + "," + matching_row.to_s
+                end
             end
+
         end
-        # p left_table_header + right_table_header
         new_csv = CSV.parse(csv_string, headers: left_table_header + right_table_header)
         
         result = []
@@ -283,8 +287,19 @@ class MySqliteRequest
     end
 
     def multiple_sort(items, options)
-        items.sort_by { |h| options.map { |g|
-          ((g[:dir]=='asc') ? 1 : -1) * h[g[:field].to_sym].to_i } }
+        sorted = items.sort_by { |h| options.map { |g|
+          ((g[:dir]==:asc) ? 1 : -1) * h[g[:field]].to_i } }
+        sorted
+    end
+
+    def construct_options_from_select()
+        options = []
+        lft_tbl_col = "#{@table_name}.#{@order_by}"
+        rht_tbl_col = "#{@join_attributes[:table]}.#{@order_by}"
+        options << {field: lft_tbl_col, dir: @order}
+        options << {field: rht_tbl_col, dir: @order}
+        p options
+        options
     end
 
     def run
@@ -296,19 +311,9 @@ class MySqliteRequest
             else
                 result = _run_join
             end
-            #finish comparing the order by left table column and right table column
             if(!@order_by.empty?)
-                if (@order_by == @join_attributes[:left_on])
-                    lft_tbl_col = "#{@table_name}.#{@order_by}"
-                    rht_tbl_col = "#{@join_attributes[:table]}.#{@order_by}"
-                    options = [{field: "#{@table_name}.name", dir: 'asc'}, {field: "#{@join_attributes[:table]}.year_start", dir: 'asc'}]
-                    sorted = multiple_sort(result, options)
-                    sorted.each do |row|
-                        row
-                    end
-                end
-
-
+                options = construct_options_from_select()
+                result = multiple_sort(result, options)
             end
             # p result
         elsif (@type_of_request == :insert)
@@ -327,11 +332,11 @@ def _main()
     
     # p request.run
     request = MySqliteRequest.new
-    request = request.from("nba_player_data_lite.csv")
-    request = request.select(['name', 'year_start'])
-    request = request.where('name', 'Mark Acres')
-    request = request.join("name", "nba_player_data_lite_join.csv", "name")
-    request = request.order(:desc, 'year_start')
+    request = request.from("nba_player_data.csv")
+    request = request.select(['Player', 'height'])
+    # request = request.where('Player', 'Mark Acres')
+    request = request.join("name", "nba_player.csv", "Player")
+    request = request.order(:desc, 'height')
     # request = request.update("nba_player_data_lite.csv")
     # request = request.set({"name" => "HI", "year_start" => "1991"})
     # request = request.insert('nba_player_data_lite.csv')
