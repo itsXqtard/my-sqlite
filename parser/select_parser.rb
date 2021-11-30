@@ -53,7 +53,6 @@ class ParseSelect
       filtered = conditions[2, conditions.length].reject{|tk| tk == ";"}
       criteria = filtered.join(" ")
       #gets rid of the leading and trailing single quote
-      print("CRITERIA: #{criteria}\n")
       criteria = criteria.delete_prefix("'").delete_suffix("'")
       where = Struct.new(:name, :criteria)
       return where.new(conditions[0], criteria)
